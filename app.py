@@ -4,7 +4,9 @@ from google import genai
 
 app = Flask(__name__)
 
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+client = genai.Client(
+    api_key=os.environ.get("GEMINI_API_KEY")
+)
 
 HTML = """
 <!DOCTYPE html>
@@ -15,21 +17,30 @@ HTML = """
 </head>
 <body>
     <h2>Chatbot</h2>
-    <input id="msg" placeholder="Mesajını yaz..." style="width:70%;padding:10px">
+
+    <input id="msg"
+           placeholder="Mesajını yaz..."
+           style="width:70%;padding:10px">
+
     <button onclick="send()">Gönder</button>
+
     <pre id="out"></pre>
 
 <script>
 async function send() {
     const message = document.getElementById("msg").value;
+
     const res = await fetch("/chat", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({message})
     });
+
     const data = await res.json();
+
     document.getElementById("out").textContent +=
-        "\\nSen: " + message + "\\nBot: " + data.reply + "\\n";
+        "\\nINPUT MESSAGE: " + message +
+        "\\nGENERATED REPLY: " + data.reply + "\\n";
 }
 </script>
 </body>
@@ -39,6 +50,7 @@ async function send() {
 @app.route("/")
 def home():
     return render_template_string(HTML)
+
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -53,90 +65,69 @@ def chat():
     prompt = f"""
 {style_prompt}
 
-Sen bir WhatsApp sohbetindeki kullanıcının yazışma tarzında cevap üretiyorsun.
+ÇOK ÖNEMLİ:
 
-KESİN KURALLAR:
-- SADECE gönderilecek mesajı yaz.
-- Açıklama yapma.
-- Asistan gibi konuşma.
-- "Ben bir yapay zekayım" deme.
-- "Sana yardımcı olabilirim" deme.
-- "Hazır bekliyorum" deme.
-- Gelen mesaja doğrudan cevap ver.
-- Cevap kısa ve doğal olsun.
-- Genellikle 2-12 kelime kullan.
-- Gerekmiyorsa uzun cevap verme.
-- Resmi konuşma.
-- Gereksiz soru sorma.
-- Küçük harfleri doğal şekilde kullan.
-- Az veya hiç noktalama kullan.
-- Gerektiğinde doğal kısaltmalar ve ufak yazım hataları kullan.
-- Duyguya göre emoji kullanabilirsin.
-- Konuşmanın bağlamına uygun davran.
-- "aşkım", "bebeğim", "bitanem" gibi hitapları SADECE konuşmanın bağlamı uygunsa kullan.
-- Bunları her mesajda zorla kullanma.
-- İnsan gibi doğal ve kısa konuş.
-- ÇOK ÖNEMLİ:
+Sen bir WhatsApp sohbetinde cevap üretiyorsun.
 
-- Sen chatbot değilsin.
+SADECE gönderilecek mesajı yaz.
 
-- Sen bir yapay zeka asistanı değilsin.
+Kendin hakkında konuşma.
+Yapay zekadan bahsetme.
+Kodlardan veya sistemlerden bahsetme.
+"Ben bir yapay zekayım" deme.
+"Sana yardımcı olabilirim" deme.
+"Ben burada hazır bekliyorum" deme.
 
-- Kendin hakkında konuşma.
+Gelen mesaja doğrudan cevap ver.
 
-- Kod, veri, sistem, yapay zeka, model veya teknoloji hakkında bahsetme.
+Cevap kısa ve doğal olsun.
+Genellikle 3-10 kelime yeterlidir.
+En fazla 1 kısa cümle kullan.
+Uzun açıklama yapma.
+Gereksiz soru sorma.
+Resmi konuşma.
 
-- Sana gelen mesajı gerçek bir WhatsApp mesajı olarak düşün.
+Küçük harfleri doğal kullan.
+Az noktalama kullan.
+Gerektiğinde doğal kısaltmalar kullan.
+Gerektiğinde ufak doğal yazım hataları olabilir.
+Emoji sadece uygunsa kullan.
 
-- Sadece karşı tarafa gönderilecek cevabı üret.
+"aşkım", "bebeğim", "bitanem" gibi hitapları
+SADECE konuşmanın bağlamı uygunsa kullan.
+Her mesajda kullanma.
 
-- CEVAP EN FAZLA 1 KISA CÜMLE OLSUN.
+ÖRNEK:
 
-- Genellikle 3-10 kelime yeterlidir.
+Gelen: "naber ne yapiyon"
+Uygun: "iyi ya takılıyom sen"
+Uygun: "iyiyim ya sen napıyon"
+Uygun: "iyi be takılıyom"
 
-- Uzun açıklama kesinlikle yapma.
+Uygun DEĞİL:
+"İyidir, ne olsun! Kodların, verilerin arasında yuvarlanıp gidiyorum işte."
+"Ben de burada hazır bekliyorum."
+"Sana yardımcı olabileceğim bir şey var mı?"
 
-- Karşı soru sormak zorunda değilsen soru sorma.
+GELEN MESAJ:
+{message}
 
-- ÖRNEK:
+Yalnızca gönderilecek kısa cevabı yaz.
+"""
 
-- Gelen: "naber ne yapiyon"
+    response = client.models.generate_content(
+        model="gemini-3.6-flash",
+        contents=prompt,
+        config={
+            "temperature": 0.8,
+            "max_output_tokens": 40
+        }
+    )
 
-- Uygun: "iyi ya takılıyom sen"
+    reply = response.text.strip()
 
-- Uygun: "iyiyim ya sen napıyon"
+    return jsonify({"reply": reply})
 
-- Uygun: "iyi be takılıyom"
-
-- Uygun DEĞİL:
-
-- "İyidir, ne olsun! Kodların, verilerin arasında yuvarlanıp gidiyorum işte..."
-
-- "Ben de burada hazır bekliyorum..."
-
-- "Sana yardımcı olabileceğim bir şey var mı?"
-
-- Bu örneklerdeki uzunluk ve doğallığı takip et.
-- GELEN MESAJ:
-- {message}
-
-- Yalnızca gönderilecek kısa cevabı yaz.
-- """
-
-    
-response = client.models.generate_content(
-    model="gemini-3.6-flash",
-    contents=prompt,
-    config={
-        "temperature": 0.8,
-        "max_output_tokens": 40,
-    }
-)
-
-reply = response.text.strip()
-
-return jsonify({"reply": reply})
-    return jsonify({"reply": response.text})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
