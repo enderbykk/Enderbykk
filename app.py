@@ -120,7 +120,7 @@ Yalnızca gönderilecek kısa cevabı yaz.
         contents=prompt,
         config={
             "temperature": 0.8,
-            "max_output_tokens": 40
+            "max_output_tokens": 20
         }
     )
 
